@@ -10,7 +10,10 @@ board-replay —— Python 侧棋盘渲染工作者（JSON-RPC over stdio，仅�
 
 方法：
   - ping             -> 探针（返回 python 版本）
-  - render_board_png -> 给定 size + 二维棋盘矩阵(0空/1黑/2白) 渲染围棋盘 PNG
+  - render_board_png -> 给定 size + 二维棋盘矩阵 渲染棋盘 PNG
+                        kind="go"   : 矩阵为 0空/1黑/2白，木盘+星位+棋子
+                        kind="chess": 矩阵为字符('KQRBNP'白 / 'kqrbnp'黑 / '.'空)，
+                                     8x8 双色格 + 圆盘字母棋子（无星位）
 """
 
 import sys
@@ -48,8 +51,71 @@ def _hoshi(size):
     return []
 
 
+def _render_chess(p):
+    from PIL import Image, ImageDraw, ImageFont
+
+    size = int(p.get("size", 8))
+    board = p.get("board") or [["."] * size for _ in range(size)]
+    px = int(p.get("px", 52))
+    margin = int(p.get("margin", 26))
+    out = p.get("out")
+    if not out:
+        raise ValueError("render_board_png 需要 out 参数")
+
+    w = margin * 2 + (size - 1) * px
+    img = Image.new("RGB", (w, w), (240, 217, 181))
+    draw = ImageDraw.Draw(img)
+
+    # 双色格（r=0 顶端=第8横线；让 a8 深色、h1 浅色，符合标准棋盘）
+    light, dark = (240, 217, 181), (181, 136, 99)
+    for r in range(size):
+        for c in range(size):
+            col = light if (r + c) % 2 == 1 else dark
+            draw.rectangle(
+                [margin + c * px, margin + r * px, margin + c * px + px, margin + r * px + px],
+                fill=col,
+            )
+
+    # 坐标标注（文件 a-h / 横线 8..1）
+    try:
+        font = ImageFont.truetype("arial.ttf", max(10, px // 4))
+    except Exception:
+        font = ImageFont.load_default()
+    files = "abcdefgh"
+    draw.fill = (91, 70, 54)
+    for c in range(size):
+        draw.text((margin + c * px + px / 2, w - margin / 2), files[c], fill=(91, 70, 54), font=font, anchor="mm")
+    for r in range(size):
+        draw.text((margin / 2, margin + r * px + px / 2), str(size - r), fill=(91, 70, 54), font=font, anchor="mm")
+
+    # 棋子：圆盘 + 字母（颜色区分敌我）
+    for r in range(size):
+        for c in range(size):
+            cell = board[r][c] if r < len(board) and c < len(board[r]) else "."
+            if not cell or cell == ".":
+                continue
+            white = cell == cell.upper()
+            cx = margin + c * px + px / 2
+            cy = margin + r * px + px / 2
+            rad = px * 0.4
+            fill = (248, 248, 248) if white else (43, 43, 43)
+            outline = (154, 154, 154) if white else (0, 0, 0)
+            draw.ellipse([cx - rad, cy - rad, cx + rad, cy + rad], fill=fill, outline=outline, width=2)
+            letter = cell.upper()
+            draw.text((cx, cy + 1), letter, fill=(28, 28, 28) if white else (243, 243, 243),
+                      font=font, anchor="mm")
+
+    os.makedirs(os.path.dirname(os.path.abspath(out)), exist_ok=True)
+    img.save(out)
+    return {"ok": True, "file": out, "width": w, "height": w, "size": size}
+
+
 def _render_board_png(p):
     from PIL import Image, ImageDraw
+
+    kind = (p.get("kind") or "go").lower()
+    if kind == "chess":
+        return _render_chess(p)
 
     size = int(p.get("size", 19))
     board = p.get("board") or [[0] * size for _ in range(size)]

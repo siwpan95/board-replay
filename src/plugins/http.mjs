@@ -80,11 +80,13 @@ export class HttpService extends Service {
 
   async _api(req, res, path, url) {
     const board = this.ctx.board
+    const chess = this._chess()
     const json = (code, body) => this._json(res, code, body)
 
-    // 谱列表
+    // 谱列表（围棋 + 国际象棋 合并；各自带 kind 字段区分）
     if (path === '/api/games' && req.method === 'GET') {
-      return json(200, { games: board.list() })
+      const games = [...board.list(), ...(chess ? chess.list() : [])]
+      return json(200, { games })
     }
 
     // 单个谱：/api/games/:id  或  /api/games/:id/state?step=k
@@ -96,14 +98,15 @@ export class HttpService extends Service {
         const stepRaw = url.searchParams.get('step')
         const step = stepRaw == null ? 999999 : Number(stepRaw)
         try {
-          const st = board.stateAt(id, step)
+          const st = board.meta(id) ? board.stateAt(id, step)
+            : (chess ? chess.stateAt(id, step) : (() => { throw new Error('unknown game: ' + id) })())
           return json(200, st)
         } catch (e) {
           return json(404, { error: e.message })
         }
       }
       if (req.method === 'GET') {
-        const meta = board.meta(id)
+        const meta = board.meta(id) || (chess ? chess.meta(id) : null)
         if (!meta) return json(404, { error: 'game not found: ' + id })
         return json(200, meta)
       }
@@ -116,7 +119,7 @@ export class HttpService extends Service {
       if (!print) return json(501, { error: 'print 插件未启用（用 BOARD_CONFIG=cordis.print.json 启动，需 Python + Pillow）' })
       const body = await this._body(req)
       try {
-        const out = await print.renderGame(body.id, body.step, body.out)
+        const out = await print.renderGame(body.id, body.step, body.out, body.kind)
         return json(200, out)
       } catch (e) {
         return json(500, { error: e.message })
@@ -127,6 +130,11 @@ export class HttpService extends Service {
   }
 
   // ---------- SSE ----------
+  // 惰性取 chess 服务（cordis.json 未挂 chess 插件时为 null，不报错）
+  _chess() {
+    try { return this.ctx.get('chess') } catch { return null }
+  }
+
   _sse(req, res) {
     res.writeHead(200, {
       'Content-Type': 'text/event-stream; charset=utf-8',
@@ -135,8 +143,11 @@ export class HttpService extends Service {
       'X-Accel-Buffering': 'no',
     })
     res.write('retry: 3000\n\n')
-    // 连接即推当前谱列表（board 在 http 之前已加载）
-    try { this._send(res, 'games', { games: this.ctx.board.list() }) } catch { /* ignore */ }
+    // 连接即推当前谱列表（围棋 + 国际象棋合并）
+    const chess = this._chess()
+    try {
+      this._send(res, 'games', { games: [...this.ctx.board.list(), ...(chess ? chess.list() : [])] })
+    } catch { /* ignore */ }
     this.clients.add(res)
     req.on('close', () => {
       this.clients.delete(res)

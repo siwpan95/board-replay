@@ -6,6 +6,11 @@
       "config": { "sgfDir": "samples" }
     },
     {
+      "id": "chess",
+      "name": "./src/plugins/chess.mjs",
+      "config": { "jsonDir": "samples/chess" }
+    },
+    {
       "id": "http",
       "name": "./src/plugins/http.mjs",
       "config": { "host": "127.0.0.1", "port": 5173, "open": true }

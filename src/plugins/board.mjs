@@ -161,6 +161,7 @@ export class BoardService extends Service {
     if (!g) return null
     return {
       id: g.id,
+      kind: 'go',
       size: g.size,
       total: g.moves.length,
       result: g.result,

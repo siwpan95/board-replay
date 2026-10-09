@@ -1,7 +1,10 @@
-// _smoke.mjs —— 端到端冒烟：board 内核 + SGF 复盘 + 提子逻辑
+// _smoke.mjs —— 端到端冒烟：board 内核 + SGF 复盘 + 提子逻辑 + chess 复盘（vendored 规则引擎）
 // 运行：npm run smoke  （或 node src/_smoke.mjs）
 import { bootHost, stopHost } from './boot.mjs'
 import { applyMove, makeBoard, vertexToXY } from './plugins/board.mjs'
+import { applyUci, parseFen, serializeFen, runPerftSelfTest } from './core/chess_engine.mjs'
+
+const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
 
 let failures = 0
 function check(name, cond, extra) {
@@ -53,6 +56,68 @@ async function main() {
     const before = JSON.stringify(b)
     const r = applyMove(b, size, { color: 'B', vertex: 'pass' })
     check('过手返回 false 且不改变棋盘', r === false && JSON.stringify(b) === before)
+  }
+
+  // ===== 国际象棋复盘（vendored tournament/engine.mjs） =====
+  const chess = ctx.chess
+  check('chess 服务已加载', !!chess)
+  if (chess) {
+    const cgames = chess.list()
+    check('chess 样例加载 >= 1', cgames.length >= 1, 'got ' + cgames.length)
+
+    // 6) 复盘保真：stateAt(total) 的 FEN 必须等于独立用 applyUci 重放全部着法的结果
+    {
+      const g = cgames[0]
+      const st = chess.stateAt(g.id, g.total)
+      // 独立重放（不依赖 ChessService，纯 vendored 引擎）
+      let s = parseFen(START_FEN)
+      const rec = chess.games.get(g.id)
+      for (const uci of rec.moves) s = applyUci(s, uci)
+      check('复盘保真 FEN 一致 (' + g.id + ')', serializeFen(st) === serializeFen(s),
+        serializeFen(st) + ' vs ' + serializeFen(s))
+    }
+
+    // 7) 将死局：找一局 reason=checkmate，断言终局 type=checkmate 且末手带 '#'
+    {
+      const cm = cgames.find((g) => g.reason === 'checkmate' && g.result === 'win')
+        || cgames.find((g) => /checkmate/i.test(g.reason || ''))
+      if (cm) {
+        const st = chess.stateAt(cm.id, cm.total)
+        check('将死局终局判定为 checkmate (' + cm.id + ')', st.terminal && st.terminal.type === 'checkmate',
+          JSON.stringify(st.terminal))
+        check('将死局末手标注 # (' + cm.id + ')', st.last && st.last.annotation === '#',
+          st.last && st.last.annotation)
+      } else {
+        console.log('[smoke] 跳过将死断言（样例中无 checkmate 局）')
+      }
+    }
+
+    // 8) 和棋（threefold）：reason=threefold 的局终局应为 draw/threefold
+    {
+      const tf = cgames.find((g) => /threefold/i.test(g.reason || ''))
+      if (tf) {
+        const st = chess.stateAt(tf.id, tf.total)
+        check('三轮重复局终局为 draw (' + tf.id + ')', st.terminal && st.terminal.type === 'draw',
+          JSON.stringify(st.terminal))
+      } else {
+        console.log('[smoke] 跳过三轮重复断言（样例中无 threefold 局）')
+      }
+    }
+
+    // 9) step 边界：step=0 是初始局面，棋盘含 32 子
+    {
+      const g = cgames[0]
+      const s0 = chess.stateAt(g.id, 0)
+      let pieces = 0
+      for (const row of s0.board) for (const v of row) if (v && v !== '.') pieces++
+      check('step=0 初始局面 32 子', pieces === 32, 'pieces=' + pieces)
+    }
+  }
+
+  // 10) vendored 国际象棋规则引擎 perft 自检（黄金值，证明规则与 lab runner 一致）
+  {
+    const r = runPerftSelfTest()
+    check('vendored chess engine perft 自检全过', r.fail === 0, r.text)
   }
 
   await stopHost()

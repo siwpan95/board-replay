@@ -6,6 +6,11 @@
       "config": { "sgfDir": "samples" }
     },
     {
+      "id": "chess",
+      "name": "./src/plugins/chess.mjs",
+      "config": { "jsonDir": "samples/chess" }
+    },
+    {
       "id": "print",
       "name": "./src/plugins/print.mjs",
       "config": { "pythonBin": "", "script": "python/rpc_server.py" }

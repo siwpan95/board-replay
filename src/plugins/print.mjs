@@ -30,23 +30,40 @@ export class PrintService extends Service {
     return this.bridge.call('ping', {})
   }
 
+  // 惰性取 chess 服务（未配置时为 null）
+  _chess() {
+    try { return this.ctx.get('chess') } catch { return null }
+  }
+
+  // 按 id / kind 解析出负责该谱的服务（围棋 board，国际象棋 chess）
+  _resolveService(id, kind) {
+    const chess = this._chess()
+    if (kind === 'chess') return chess || this.ctx.board
+    if (kind === 'go') return this.ctx.board
+    if (this.ctx.board.meta(id)) return this.ctx.board
+    if (chess && chess.meta(id)) return chess
+    return this.ctx.board
+  }
+
   // 渲染某谱第 step 手（省略 step -> 终局）的棋盘 PNG。
-  // out 省略 -> output/<id>-<step>.png
-  async renderGame(id, step, out) {
-    const st = this.ctx.board.stateAt(id, step == null ? 999999 : step)
+  // out 省略 -> output/<id>-<step>.png；kind 省略则按 id 自动判定。
+  async renderGame(id, step, out, kind) {
+    const svc = this._resolveService(id, kind)
+    const st = svc.stateAt(id, step == null ? 999999 : step)
     const file = out || resolve(process.cwd(), 'output', `${st.id}-${st.step}.png`)
     const res = await this.bridge.call('render_board_png', {
       size: st.size,
       board: st.board,
       out: file,
+      kind: st.kind || 'go',
     })
-    return { ...res, file, id: st.id, step: st.step }
+    return { ...res, file, id: st.id, step: st.step, kind: st.kind || 'go' }
   }
 
-  // 直接渲染给定棋盘矩阵（供未来国际化象棋复用，棋盘约定一致时可直接复用）
-  async renderBoard(board, size, out) {
+  // 直接渲染给定棋盘矩阵（kind 区分围棋 / 国际象棋）
+  async renderBoard(board, size, out, kind) {
     const file = out || resolve(process.cwd(), 'output', 'board.png')
-    const res = await this.bridge.call('render_board_png', { size, board, out: file })
+    const res = await this.bridge.call('render_board_png', { size, board, out: file, kind: kind || 'go' })
     return { ...res, file }
   }
 }
