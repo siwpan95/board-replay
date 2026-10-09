@@ -92,6 +92,31 @@ node tools/import_lab_chess.mjs --report /path/to/report.md --out ./samples/ches
 保证能被 vendored 规则引擎逐手复现。每个战报聚合为一个 JSON 文件
 （`{ report, date, count, games: [...] }`），每局带全局唯一 `id`。
 
+### 作为 lab 循环赛的「独立复盘验证环节」
+
+`tools/verify_lab_report.mjs`（`npm run verify`）把上面的导入 + 回放做成一道**离岸交叉验证**：
+
+```bash
+# 验证当天 lab 战报（默认 D:/projects/lab/tournament/reports/YYYY-MM-DD.md）
+npm run verify
+
+# 指定战报 + 输出 Markdown 验证报告
+node tools/verify_lab_report.mjs --report /path/to/2026-09-30.md --md reports/verify-2026-09-30.md
+```
+
+四道关卡（任一不过即退出码 1；缺战报/零对局为 2）：
+
+| # | 关卡 | 判据 |
+| --- | --- | --- |
+| 1 | 规则引擎 perft 黄金值自检 | 5 项官方基准全过（证明本侧规则 == lab runner 规则） |
+| 2 | 逐手合法性 | 战报每一手 UCI 都能被规则引擎接受，非法即 FAIL |
+| 3 | 终局一致 | 重放出的终局（checkmate / stalemate / threefold / 其它和棋）与战报声明的 reason 吻合，将死局还要核对胜方颜色 |
+| 4 | 服务态一致 | 启动 Cordis host（`BOARD_PORT=0` 由系统分配端口，不占用常驻 5173），REST `/api/games` 与 `/state?step=total` 的棋盘、终局与离线重放逐子一致 |
+
+「裁定/异常局」（max-ply 和棋 / 超时 / 崩溃 / 不战而胜）不强制终局，但若回放实际是**将死或逼和**
+会记一条**软告警**（不计 FAIL）——例如 runner 打到 `MAX_PLY` 最后一手正好将死却仍裁定为和棋，
+这类 adjudication 边界缺口会被稳定暴露出来。
+
 ---
 
 ## 加入你自己的对局

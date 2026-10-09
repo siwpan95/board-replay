@@ -7,7 +7,8 @@
   "scripts": {
     "start": "node src/boot.mjs",
     "start:print": "BOARD_CONFIG=cordis.print.json node src/boot.mjs",
-    "smoke": "node src/_smoke.mjs"
+    "smoke": "node src/_smoke.mjs",
+    "verify": "node tools/verify_lab_report.mjs"
   },
   "keywords": ["go", "weiqi", "sgf", "replay", "cordis", "board"],
   "author": "siwpan",

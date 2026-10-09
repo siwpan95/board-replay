@@ -35,10 +35,19 @@ function parseGameHeader(line) {
   const bm = line.match(/([A-Za-z0-9_]+)\s*执黑/)
   const white = wm ? wm[1] : ''
   const black = bm ? bm[1] : ''
-  // 结果原因取行内最后一个括号（形如「— 和棋（threefold）」「— go 胜 vb（checkmate）」）；
+  // 结果原因取行尾最后一个括号块（形如「— 和棋（threefold）」「— go 胜 vb（checkmate）」）；
   // 前面的「（go 执白， vb 执黑）」是先后手说明，不是原因。
-  const allP = line.match(/[（(]([^）)]*)[）)]/g)
-  const reason = allP && allP.length ? allP[allP.length - 1].slice(1, -1) : ''
+  // 用「最后一个左括号 -> 行尾」而不是括号配对：像「max-ply (160) reached」这类内含半角括号的
+  // 原因，配对式正则会被半角 ')' 截断成「max-ply (160」。
+  // 优先取最后一个全角「（」：lab 战报一律用全角括号包原因，全角优先才能正确跨过
+  // 「max-ply (160) reached」里的半角括号（否则会被截成「160) reached」）。
+  let lo = line.lastIndexOf('（')
+  if (lo < 0) lo = line.lastIndexOf('(')
+  let reason = ''
+  if (lo >= 0) {
+    reason = line.slice(lo + 1).trim()
+    if (reason.endsWith('）') || reason.endsWith(')')) reason = reason.slice(0, -1)
+  }
   const win = line.match(/([A-Za-z0-9_]+)\s*胜\s*([A-Za-z0-9_]+)/)
   let result = 'draw'
   let winner = null
