@@ -18,6 +18,7 @@
     </aside>
     <section id="board-area">
       <div id="meta">选择左侧棋谱开始复盘</div>
+      <div id="terminal" class="terminal" hidden></div>
       <canvas id="board"></canvas>
       <div id="controls">
         <button id="first" title="开局">⏮</button>
@@ -28,7 +29,10 @@
         <span id="step-label">0 / 0</span>
       </div>
       <div id="lastmove"></div>
-      <button id="print" hidden>导出 PNG</button>
+      <div id="actions">
+        <button id="export-pgn" hidden>导出 PGN</button>
+        <button id="print" hidden>导出 PNG</button>
+      </div>
     </section>
   </main>
   <script src="app.js"></script>

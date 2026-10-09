@@ -89,10 +89,26 @@ export class HttpService extends Service {
       return json(200, { games })
     }
 
-    // 单个谱：/api/games/:id  或  /api/games/:id/state?step=k
+    // 单个谱：/api/games/:id  /  /api/games/:id/state?step=k  /  /api/games/:id/pgn
     if (path.startsWith('/api/games/')) {
       const rest = decodeURIComponent(path.slice('/api/games/'.length))
       const id = rest.split('/')[0]
+      if (rest.endsWith('/pgn')) {
+        if (req.method !== 'GET') return json(405, { error: 'method not allowed' })
+        const chess = this._chess()
+        if (!chess) return json(501, { error: 'chess 插件未启用，无法导出 PGN' })
+        try {
+          const pgn = chess.pgn(id)
+          res.writeHead(200, {
+            'Content-Type': 'application/x-chess-pgn; charset=utf-8',
+            'Content-Disposition': `attachment; filename="${id}.pgn"`,
+            'Cache-Control': 'no-store',
+          })
+          return res.end(pgn)
+        } catch (e) {
+          return json(404, { error: e.message })
+        }
+      }
       if (rest.endsWith('/state')) {
         if (req.method !== 'GET') return json(405, { error: 'method not allowed' })
         const stepRaw = url.searchParams.get('step')

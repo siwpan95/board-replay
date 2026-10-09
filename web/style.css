@@ -88,7 +88,22 @@ main {
 
 #lastmove { color: var(--text); font-size: 14px; min-height: 20px; }
 
-#print {
+/* 终局裁决横幅 */
+.terminal {
+  width: 100%;
+  max-width: 460px;
+  text-align: center;
+  border-radius: 8px;
+  padding: 9px 14px;
+  font-size: 15px;
+  font-weight: 600;
+  border: 1px solid var(--border);
+}
+.terminal.win { background: rgba(226, 59, 59, 0.16); color: #ff8a8a; border-color: rgba(226, 59, 59, 0.5); }
+.terminal.draw { background: rgba(120, 170, 255, 0.14); color: #9cc0ff; border-color: rgba(120, 170, 255, 0.45); }
+
+#actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+#actions button {
   background: var(--accent);
   color: #fff;
   border: none;
@@ -97,4 +112,4 @@ main {
   cursor: pointer;
   font-size: 14px;
 }
-#print:hover { filter: brightness(1.08); }
+#actions button:hover { filter: brightness(1.08); }

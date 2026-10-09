@@ -112,6 +112,25 @@ async function main() {
       for (const row of s0.board) for (const v of row) if (v && v !== '.') pieces++
       check('step=0 初始局面 32 子', pieces === 32, 'pieces=' + pieces)
     }
+
+    // 11) PGN 导出：SAN 正确 + 结果标签 + 头
+    {
+      const tf = cgames.find((g) => /threefold/i.test(g.reason || ''))
+      if (tf) {
+        const pgn = chess.pgn(tf.id)
+        check('PGN 含 [Event]/[Result] 头', pgn.includes('[Event') && pgn.includes('[Result'), '')
+        check('PGN 含 1. 着法编号', pgn.includes('1. '), '')
+        // go-rust-1 前两手 b1c3 b8c6 d2d4 g8f6 -> 1. Nc3 Nc6 2. d4
+        check('PGN SAN 正确 (1. Nc3 Nc6 2. d4)', pgn.includes('1. Nc3 Nc6 2. d4'), pgn.split('\n').pop().slice(0, 60))
+        check('PGN 三轮重复以 1/2-1/2 结束', pgn.trimEnd().endsWith('1/2-1/2'), JSON.stringify(pgn.trimEnd().slice(-14)))
+      }
+      const cm = cgames.find((g) => g.reason === 'checkmate' && g.result === 'win')
+      if (cm) {
+        const pgn = chess.pgn(cm.id)
+        check('PGN 将死局含 #', pgn.includes('#'), pgn.split('\n').pop().slice(0, 80))
+        check('PGN 将死局以 1-0 结束', pgn.trimEnd().endsWith('1-0'), JSON.stringify(pgn.trimEnd().slice(-12)))
+      }
+    }
   }
 
   // 10) vendored 国际象棋规则引擎 perft 自检（黄金值，证明规则与 lab runner 一致）

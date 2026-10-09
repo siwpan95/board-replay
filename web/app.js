@@ -49,6 +49,7 @@ async function selectGame(id, li) {
   step = meta.total // 默认看终局，再逐步回退
   slider.value = step
   document.getElementById('print').hidden = false
+  document.getElementById('export-pgn').hidden = current.kind !== 'chess'
   await render()
 }
 
@@ -61,6 +62,35 @@ async function render() {
   document.getElementById('step-label').textContent = `${st.step} / ${st.total}`
   document.getElementById('lastmove').textContent = lastMoveLabel(st)
   document.getElementById('slider').value = st.step
+  renderTerminal(st)
+}
+
+// 终局裁决横幅（仅国象在 stateAt 中算出 terminal）
+function renderTerminal(st) {
+  const el = document.getElementById('terminal')
+  if (st.terminal) {
+    const t = st.terminal
+    let txt
+    let cls
+    if (t.type === 'checkmate') {
+      txt = '将死 — ' + (t.winner === 'w' ? '白方' : '黑方') + '胜'
+      cls = 'win'
+    } else if (t.type === 'stalemate') {
+      txt = '逼和（stalemate）— 和棋'
+      cls = 'draw'
+    } else if (t.type === 'draw') {
+      txt = '和棋' + (t.reason ? '（' + t.reason + '）' : '')
+      cls = 'draw'
+    } else {
+      txt = ''
+      cls = ''
+    }
+    el.textContent = txt
+    el.className = 'terminal ' + cls
+    el.hidden = false
+  } else {
+    el.hidden = true
+  }
 }
 
 function lastMoveLabel(st) {
@@ -244,6 +274,25 @@ document.getElementById('print').onclick = async () => {
   const j = await r.json()
   if (j.file) alert('已生成：' + j.file)
   else alert('出图失败：' + (j.error || '未知'))
+}
+
+document.getElementById('export-pgn').onclick = async () => {
+  if (!current || current.kind !== 'chess') return
+  try {
+    const r = await fetch('/api/games/' + encodeURIComponent(current.id) + '/pgn')
+    if (!r.ok) { alert('导出失败：' + r.status); return }
+    const txt = await r.text()
+    const blob = new Blob([txt], { type: 'application/x-chess-pgn' })
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob)
+    a.download = current.id + '.pgn'
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    URL.revokeObjectURL(a.href)
+  } catch (e) {
+    alert('导出失败：' + e.message)
+  }
 }
 
 loadGames()

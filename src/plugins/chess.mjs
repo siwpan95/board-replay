@@ -9,12 +9,16 @@ import {
   parseFen,
   applyUci,
   serializeFen,
+  applyMove,
+  generateAllLegalMoves,
   isCheckmate,
   isCheck,
   isThreefold,
   isStalemate,
   isDraw,
+  SPECIAL,
 } from '../core/chess_engine.mjs'
+import { formatSan, buildPgn } from '../core/san.mjs'
 
 // 标准初始局面 FEN（board[r][c]：r=0 为第 8 横线/顶端，c=0 为 a 列）
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
@@ -101,6 +105,8 @@ export class ChessService extends Service {
       white: rec.white || rec.w || '',
       black: rec.black || rec.b || '',
       result: rec.result || '',
+      winner: rec.winner || '',
+      loser: rec.loser || '',
       reason: rec.reason || '',
       moves,
     }
@@ -185,6 +191,65 @@ export class ChessService extends Service {
     if (isThreefold(state)) return { type: 'draw', reason: 'threefold' }
     if (isDraw(state)) return { type: 'draw', reason: 'draw' }
     return null
+  }
+
+  // 结果标签：1-0 / 0-1 / 1/2-1/2 / *
+  _resultTag(g) {
+    if (g.result === 'win') {
+      if (g.winner === g.white) return '1-0'
+      if (g.winner === g.black) return '0-1'
+      return '*'
+    }
+    if (g.result === 'draw') return '1/2-1/2'
+    return '*'
+  }
+
+  // 依据复盘终局（棋盘真实状态）推导 PGN Result 标签。
+  // 优先用引擎判定（将死/和棋），这是棋盘层面的真相；
+  // 只有当记录根本没有合法终局（如 forfeit / crash / 超时胜）时才回退到声明结果。
+  _resultFromReplay(state, g) {
+    const term = this._terminal(state, g)
+    if (term && term.type === 'checkmate') {
+      // term.winner 为胜方颜色 'w'/'b'
+      return term.winner === 'w' ? '1-0' : '0-1'
+    }
+    if (term && term.type === 'draw') return '1/2-1/2'
+    return this._resultTag(g)
+  }
+
+  // 导出 PGN：重放 UCI -> SAN 着法序列 + 7 标签头，返回完整 PGN 文本。
+  pgn(id) {
+    const g = this.games.get(id)
+    if (!g) throw new Error('unknown game: ' + id)
+    let state = parseFen(START_FEN)
+    const sanMoves = []
+    for (const uci of g.moves) {
+      const parsed = parseUci(uci)
+      const all = generateAllLegalMoves(state)
+      const matches = all.filter(
+        (m) => m.fromR === parsed.fromRow && m.fromC === parsed.fromCol &&
+          m.toR === parsed.toRow && m.toC === parsed.toCol
+      )
+      let mv = matches[0]
+      if (!mv) throw new Error('illegal move in replay: ' + uci)
+      if (mv.special === SPECIAL.PROMOTION && parsed.promo) {
+        const m2 = matches.find((m) => m.promotion && m.promotion.toLowerCase() === parsed.promo)
+        if (m2) mv = m2
+      }
+      const san = formatSan(state, mv, all)
+      state = applyMove(state, mv, false)
+      const suffix = isCheckmate(state) ? '#' : (isCheck(state, state.whiteToMove) ? '+' : '')
+      sanMoves.push(san + suffix)
+    }
+    const result = this._resultFromReplay(state, g)
+    const dm = g.id.match(/(\d{4})-(\d{2})-(\d{2})/)
+    const meta = {
+      event: 'board-replay: ' + g.id,
+      date: dm ? `${dm[1]}.${dm[2]}.${dm[3]}` : '????.??.??',
+      white: g.white || '?',
+      black: g.black || '?',
+    }
+    return buildPgn(meta, sanMoves, result)
   }
 }
 
