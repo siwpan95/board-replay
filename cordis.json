@@ -1,0 +1,14 @@
+{
+  "entries": [
+    {
+      "id": "board",
+      "name": "./src/plugins/board.mjs",
+      "config": { "sgfDir": "samples" }
+    },
+    {
+      "id": "http",
+      "name": "./src/plugins/http.mjs",
+      "config": { "host": "127.0.0.1", "port": 5173, "open": true }
+    }
+  ]
+}

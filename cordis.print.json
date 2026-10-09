@@ -1,0 +1,19 @@
+{
+  "entries": [
+    {
+      "id": "board",
+      "name": "./src/plugins/board.mjs",
+      "config": { "sgfDir": "samples" }
+    },
+    {
+      "id": "print",
+      "name": "./src/plugins/print.mjs",
+      "config": { "pythonBin": "", "script": "python/rpc_server.py" }
+    },
+    {
+      "id": "http",
+      "name": "./src/plugins/http.mjs",
+      "config": { "host": "127.0.0.1", "port": 5173, "open": true }
+    }
+  ]
+}

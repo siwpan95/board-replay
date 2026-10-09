@@ -1,0 +1,17 @@
+# 依赖
+node_modules/
+
+# 生成物（出图 / 临时）
+output/
+*.png
+*.tmp
+.broken-*
+
+# 本地覆盖
+local.env
+
+# 编辑器 / 系统
+.DS_Store
+.vscode/
+.idea/
+*.log

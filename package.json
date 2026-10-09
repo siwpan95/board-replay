@@ -1,0 +1,20 @@
+{
+  "name": "board-replay",
+  "version": "0.1.0",
+  "description": "Cordis 内核 + 本地 Web UI 的棋谱复盘器（围棋 SGF 优先；棋盘可视化 / 逐步复盘 / 出图）",
+  "type": "module",
+  "main": "src/boot.mjs",
+  "scripts": {
+    "start": "node src/boot.mjs",
+    "start:print": "BOARD_CONFIG=cordis.print.json node src/boot.mjs",
+    "smoke": "node src/_smoke.mjs"
+  },
+  "keywords": ["go", "weiqi", "sgf", "replay", "cordis", "board"],
+  "author": "siwpan",
+  "license": "MIT",
+  "dependencies": {
+    "@cordisjs/plugin-loader": "^1.0.0-rc.7",
+    "@cordisjs/plugin-logger-console": "^1.0.0",
+    "cordis": "^4.0.0-rc.10"
+  }
+}

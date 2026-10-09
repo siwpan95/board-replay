@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>board-replay · 围棋复盘</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <h1>board-replay</h1>
+    <span class="sub">围棋（SGF）复盘 · Cordis 内核</span>
+  </header>
+  <main>
+    <aside id="sidebar">
+      <h2>棋谱</h2>
+      <ul id="games"></ul>
+    </aside>
+    <section id="board-area">
+      <div id="meta">选择左侧棋谱开始复盘</div>
+      <canvas id="board"></canvas>
+      <div id="controls">
+        <button id="first" title="开局">⏮</button>
+        <button id="prev" title="上一手">◀ 上一手</button>
+        <input id="slider" type="range" min="0" max="0" value="0" />
+        <button id="next" title="下一手">下一手 ▶</button>
+        <button id="last" title="终局">⏭</button>
+        <span id="step-label">0 / 0</span>
+      </div>
+      <div id="lastmove"></div>
+      <button id="print" hidden>导出 PNG</button>
+    </section>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>
