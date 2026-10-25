@@ -8,6 +8,9 @@
 > 把 lab 系列项目里「围棋」与「跨语言国际象棋循环赛」的真实对局记录整合到同一个复盘器，
 > 逐手回放、对比终局，前端步进/滑块浏览，并可导出 PNG。
 
+当前版本：**v0.2.0**（见 [发行版说明](docs/releases/notes-v0.2.0.md) /
+[Gitee Releases](https://gitee.com/siwpan/board-replay/releases)）
+
 ---
 
 ## 功能

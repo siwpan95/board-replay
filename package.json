@@ -1,6 +1,6 @@
 {
   "name": "board-replay",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Cordis 内核 + 本地 Web UI 的棋谱复盘器（围棋 SGF 优先；棋盘可视化 / 逐步复盘 / 出图）",
   "type": "module",
   "main": "src/boot.mjs",
