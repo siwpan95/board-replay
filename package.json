@@ -12,7 +12,10 @@
     "video": "node tools/replay_video.mjs",
     "video:list": "node tools/replay_video.mjs --list",
     "verify:go": "node tools/verify_go_sgf_referee.mjs",
-    "verify:video": "node tools/verify_replay_video.mjs"
+    "verify:video": "node tools/verify_replay_video.mjs",
+    "verify:vendor": "node tools/check_vendor_sync.mjs",
+    "hooks:install": "node tools/install_hooks.mjs",
+    "hooks:uninstall": "node tools/install_hooks.mjs --uninstall"
   },
   "keywords": ["go", "weiqi", "sgf", "replay", "cordis", "board"],
   "author": "siwpan",

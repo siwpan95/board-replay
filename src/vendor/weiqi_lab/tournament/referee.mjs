@@ -1,24 +1,28 @@
-// referee.mjs — 独立裁决层（authoritative arbiter）
-//
 // ── vendored 说明（本文件为逐字副本，仅在文件头追加本段标注）──────────────
 // 来源：weiqi_lab/tournament/referee.mjs（同作者 siwpan 的姊妹仓库）
-// 取用范围：完整文件，未作任何逻辑修改（SHA-256 与源文件一致）。
-// 上游 SHA-256：b3ed2eff28b1b8875b05088599d753434a08b0cb3e883a270845e0c41ded42dd
+// 取用范围：完整文件，未作任何逻辑修改。
+// 上游提交：5feba7449234d60e7d57bd4d2ca3ceea41c3c81c
+// 上游正文 SHA-256：b329d930a1a879b5de03c091b1d7080bcbb77a6136d74efbec2198d815616ec0
 // 许可：MIT（与本仓一致，见仓库根 LICENSE）；原作者版权声明保留于下。
 // 用途：作为 board-replay 围棋复盘内核的**离岸交叉验证裁判** —— 两套独立实现
 //       对同一份棋谱必须给出同一结论，否则复盘结果不可信。
-// 同步要求：上游修改后需重新复制并更新上面的 SHA-256（见 npm run verify:go）。
+// 同步要求：上游修改后需重新 vendored 并更新上面的 SHA-256。
+//         自动检查：node tools/check_vendor_sync.mjs（CI 亦会跑）
 // ────────────────────────────────────────────────────────────────────────
+//
+// // referee.mjs — 独立裁决层（authoritative arbiter）
 //
 // 设计取向：**刻意与五个引擎的实现机制不同**，以构成真正的第三方仲裁：
 //   - 不用 Zobrist：超级劫用「盘面字符串」判重（引擎侧用 splitmix64 键）
 //   - 不用 stamp 数组：棋块扫描用显式队列 + Set
 //   - 只实现仲裁所需子集（play/legal/legalMoves/score/undo），不含 AI
 // 行为契约与 docs/RULES_SPEC.md 完全一致；由 harness 的随机局面交叉校验守护。
-//
-// Copyright (c) 2026 siwpan — MIT License（见仓库根 LICENSE）
 
 export const COLS = "ABCDEFGHJKLMNOPQRST";
+
+// 死子判定（纯函数，依赖 tools/scoring.mjs；与引擎侧 ai.mjs 共用同一算法，行为逐位一致）。
+// referee 作为语言无关的权威仲裁层，自动死子修正由此统一出口，避免各引擎各自实现导致跨语言不一致。
+import { deadStones, buildNeigh } from "../tools/scoring.mjs";
 
 export const PROFILES = {
   cn: { ko: "positional", suicide: "forbid", scoring: "area", komi: 7.5 },
@@ -321,6 +325,17 @@ export class Ref {
     const diff = black - (white + this.komi);
     const result = diff === 0 ? "0" : (diff > 0 ? "B+" + fmtNum(diff) : "W+" + fmtNum(-diff));
     return { black, white, komi: this.komi, dame, result };
+  }
+
+  /** 自动死子判定后的终局计分（面积法）。推翻 docs/RESEARCH.md §8.4「死子自动判定：不实现」：
+   * 终局（两 pass）后自动识别死子并移除，修正「盘上皆活」给错的分差。
+   * 与引擎侧 ai.mjs 的 dead_stones 叶子估值共用 tools/scoring.mjs 的同一算法，语义一致。 */
+  scoreAuto() {
+    const neigh = buildNeigh(this.size);
+    const dead = deadStones(this.cells, this.size, neigh);
+    const pairs = [];
+    for (const m of dead) pairs.push([this.cells[m], formatVertex(m, this.size)]);
+    return this.score(pairs);
   }
 
   /** 复演一手序列：任一手非法即返回 {ok:false, ply, reason}（裁决用） */

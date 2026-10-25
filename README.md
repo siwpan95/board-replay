@@ -91,7 +91,7 @@ SGF 谱
 ### 保真验证（两道门禁）
 
 出图建立在「复盘内核逐子正确」的前提上，因此有两道**离岸交叉验证**——都刻意用
-**另一套独立实现**（赛事裁判 `src/core/referee.mjs`，vendored 自 weiqi_lab）来验：
+**另一套独立实现**（赛事裁判 `src/vendor/weiqi_lab/tournament/referee.mjs`，vendored 自 weiqi_lab）来验：
 
 ```bash
 # 门禁 1：赛事裁判复演 samples/*.sgf，终局结果必须与 SGF 的 RE 字段一致
@@ -109,10 +109,56 @@ BOARD_PYTHON=E:/Python314/python.exe npm run verify:video -- \
 门禁 2 的四道关卡：两套内核逐手局面全等 → 逐手提子数全等 → 裁判终局 == SGF RE →
 全部帧全图 SHA-256 一致。任一不过即退出码 1。
 
-> 裁判模块已 **vendored 进本仓**（`src/core/referee.mjs`，MIT，逐字副本 + 溯源标注头），
+> 裁判模块已 **vendored 进本仓**（`src/vendor/weiqi_lab/`，MIT，逐字副本 + 溯源标注头），
 > 因此两个门禁在**独立 clone 后即可运行**，无需同级放置 `weiqi_lab`。
-> 若需确认 vendored 副本与上游是否仍同步（上游改了要重新 vendored），跑：
-> `node tools/verify_go_sgf_referee.mjs --upstream` —— 它比对「去掉标注头后的正文」SHA-256。
+>
+> vendored 目录**镜像上游结构**（`src/vendor/weiqi_lab/<上游路径>`），
+> 这样上游文件里的相对 import（如 `../tools/scoring.mjs`）在 vendored 后原样可用 ——
+> 「逐字副本」的 import 路径无需任何改写。
+
+### 自动漂移检查（第三道门禁）
+
+上游 `weiqi_lab` 会持续演进（实测 2026-10-25：上游 `f882c62` 给裁判加了 `scoreAuto()`
+自动死子判定，并引入对 `tools/scoring.mjs` 的跨文件依赖）。若 vendored 副本不同步，
+前两道门禁就会基于一份**过期的裁判** —— 绿灯不代表真的对。
+
+```bash
+npm run verify:vendor          # 检查 vendored 副本 vs 上游远端最新提交
+npm run verify:go -- --upstream # 同上（委托给同一脚本）
+```
+
+检查做三件事：
+
+| # | 检查 | 能发现什么 |
+| --- | --- | --- |
+| 1 | 逐文件比对**正文** SHA-256（剥掉本仓加的溯源标注头） | 上游改了任一 vendored 文件 |
+| 2 | 扫描上游文件的相对 `import` | 上游**新增**了本仓未 vendored 的依赖 → 悬空 import |
+| 3 | 依赖必须同时纳入正文比对 | 「文件在但不比对」→ 会漏报漂移 |
+
+**关键实现约束**：比对针对上游的 **git 对象内容**（`git show <ref>:<path>`），
+**不是**本地工作区文件 —— `git fetch` 不会更新工作区，读工作区会**漏报漂移**
+（本机就踩过：本地 `weiqi_lab` 停在旧提交，一度误判为"已同步"）。
+
+退出码：`0` 同步 / `1` 漂移 / `2` 无法检查（网络等）。
+
+#### 三层自动化
+
+| 层 | 触发 | 作用 |
+| --- | --- | --- |
+| **本地 hook** | `git commit` 时 | 提交前打印漂移警告（**警告式，不阻塞提交** —— 它依赖网络，网络抖动不该挡住工作） |
+| **CI 流水线** | push 到 master / PR / 每日 08:00 | 完整跑三道门禁 + 生成视频产物，漂移即红 |
+| **手动** | 随时 | `npm run verify:vendor` |
+
+安装本地 hook（**不随 clone 分发**，克隆后需装一次）：
+
+```bash
+npm run hooks:install      # 安装 pre-commit 漂移拦截
+npm run hooks:uninstall    # 卸载
+```
+
+CI 配置在 `.workflow/verify.yml`（Gitee Go 流水线）。
+>
+> 漂移检查（见下节）：`npm run verify:vendor`。
 
 ### 坐标方向（易错点）
 
@@ -137,7 +183,9 @@ board-replay/
 │   ├── _smoke.mjs         # 端到端冒烟
 │   ├── core/
 │   │   ├── sgf.mjs        # vendored from weiqi_lab：SGF 解析（FF[4]）
-│   │   ├── referee.mjs    # vendored from weiqi_lab/tournament/referee.mjs：赛事裁判（离岸验证用）
+│   ├── vendor/weiqi_lab/   # vendored 自 weiqi_lab（镜像上游结构，逐字副本）
+│   │   ├── tournament/referee.mjs  # 赛事裁判（离岸验证用）
+│   │   └── tools/scoring.mjs      # 裁判 scoreAuto() 的依赖（纯函数）
 │   │   ├── bridge.mjs     # vendored from cordis-table-app：JSON-RPC stdio 桥
 │   │   └── chess_engine.mjs# vendored from lab/tournament/engine.mjs：国象规则引擎（perft 自检）
 │   └── plugins/
@@ -153,7 +201,9 @@ board-replay/
 │   ├── verify_lab_report.mjs      # lab 国际象棋战报的离岸交叉验证
 │   ├── replay_video.mjs           # 围棋对局 -> 定格视频（mp4 + gif）
 │   ├── verify_go_sgf_referee.mjs  # 门禁1：赛事裁判复演 SGF，终局须与 RE 一致
-│   └── verify_replay_video.mjs    # 门禁2：视频帧逐帧 SHA-256 与裁判复演比对
+│   ├── verify_replay_video.mjs    # 门禁2：视频帧逐帧 SHA-256 与裁判复演比对
+│   ├── check_vendor_sync.mjs      # 门禁3：vendored 副本 vs 上游远端最新的漂移检查
+│   └── install_hooks.mjs         # 安装 pre-commit 漂移拦截 hook
 ├── samples/
 │   ├── *.sgf              # 围棋样例（来自 weiqi_lab/tournament/sgf）
 │   └── chess/*.json       # 国象样例（来自 lab 跨语言循环赛战报）
@@ -172,7 +222,7 @@ board-replay/
 > **两个 lab 的分工**：`lab/` 是**国际象棋**跨语言循环赛（`GoChess` 是 Go *语言*写的国象引擎，
 > 不是围棋）；**围棋**对局来自同系列的 `weiqi_lab/`（`GoWeiqi` 等）。本仓库 `samples/*.sgf`
 > 是 `weiqi_lab/tournament/sgf/` 的逐字副本（MD5 一致）。
-> 赛事裁判 `referee.mjs` 也已 vendored 进本仓（`src/core/referee.mjs`，MIT，同作者），
+> 赛事裁判 `referee.mjs` 也已 vendored 进本仓（`src/vendor/weiqi_lab/`，MIT，同作者），
 > 故离岸验证门禁无需外部仓库即可运行。
 
 ### 重新导入国象对局

@@ -1,0 +1,102 @@
+# Gitee Go 流水线：board-replay 持续验证
+#
+# 触发：
+#   - push 到 master
+#   - 每日定时（cron 0 8 * * ?）
+#   - pull request
+#
+# 阶段：
+#   1) verify    —— 离岸门禁1（裁判复演 SGF）+ 门禁2（视频帧像素级比对，需 Python+Pillow）
+#                   + 冒烟测试 + vendored 漂移检查
+#   2) release   —— 生成定格视频并打包（产物作为流水线归档）
+#
+# 说明：
+#   - 漂移检查（check_vendor_sync）会拉取上游 weiqi_lab 的**远端最新提交**并比对，
+#     故本仓 vendored 副本落后上游时流水线会红 —— 这正是它的目的。
+#   - 门禁2 需要 samples 对应的视频帧（output/ 被 .gitignore 忽略，不在仓库里），
+#     故流水线内先生成视频再比对。
+version: '1.0'
+
+name: board-replay-verify
+displayName: board-replay 持续验证
+
+triggers:
+  push:
+    branches:
+      precise:
+        - master
+    tags:
+      include:
+        - '^v.*'
+  pr:
+    branches:
+      precise:
+        - master
+  schedule:
+    - cron: '0 8 * * ?'
+
+variables:
+  PYTHON_BIN: 'python3'
+  PIP_INDEX: 'https://mirrors.cloud.tencent.com/pypi/simple'
+
+stages:
+  - stage:
+      name: verify
+      displayName: 离岸验证与漂移检查
+      strategy: naturally
+      trigger: auto
+      steps:
+        - step: build@nodejs
+          name: node-install
+          displayName: 安装 Node 依赖
+          nodeVersion: '20'
+          goals: |
+            node -v
+            npm install --no-audit --no-fund
+
+        - step: build@python
+          name: python-install
+          displayName: 安装 Python 依赖（Pillow）
+          pythonVersion: '3.11'
+          goals: |
+            python3 -V
+            pip3 install --index-url $PIP_INDEX Pillow
+
+        - step: build@maven
+          name: run-verifications
+          displayName: 冒烟 + 离岸门禁 + 漂移检查
+          goals: |
+            set -e
+            echo "=== 1) 冒烟测试 ==="
+            npm run smoke
+            echo ""
+            echo "=== 2) 门禁1：裁判复演 SGF，终局须与 RE 一致 ==="
+            npm run verify:go
+            echo ""
+            echo "=== 3) 生成定格视频（门禁2 需要帧序列） ==="
+            npm run video -- --id 2026-10-09-g01-pyvsjs --hold 700 --px 48 --no-gif
+            echo ""
+            echo "=== 4) 门禁2：视频帧逐帧全图 SHA-256 比对 ==="
+            npm run verify:video -- samples/2026-10-09-g01-pyvsjs.sgf output/video/2026-10-09-g01-pyvsjs/frames 48
+            echo ""
+            echo "=== 5) vendored 副本 vs 上游漂移检查 ==="
+            npm run verify:vendor
+
+  - stage:
+      name: release
+      displayName: 生成定格视频产物
+      strategy: naturally
+      trigger: auto
+      steps:
+        - step: build@nodejs
+          name: gen-videos
+          displayName: 生成两局定格视频
+          nodeVersion: '20'
+          goals: |
+            set -e
+            npm install --no-audit --no-fund
+            npm run video -- --id 2026-10-09-g01-pyvsjs --hold 700 --px 48
+            npm run video -- --id 2026-10-09-g03-cppvsgo --hold 700 --px 48
+            echo "产物："
+            find output/video -name '*.mp4' -o -name '*.gif' | sort
+            du -sh output/video/*
