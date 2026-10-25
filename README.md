@@ -88,7 +88,7 @@ SGF 谱
 ### 保真验证（两道门禁）
 
 出图建立在「复盘内核逐子正确」的前提上，因此有两道**离岸交叉验证**——都刻意用
-**另一套独立实现**（weiqi_lab 赛事裁判 `weiqi_lab/tournament/referee.mjs`）来验：
+**另一套独立实现**（赛事裁判 `src/core/referee.mjs`，vendored 自 weiqi_lab）来验：
 
 ```bash
 # 门禁 1：赛事裁判复演 samples/*.sgf，终局结果必须与 SGF 的 RE 字段一致
@@ -106,7 +106,10 @@ BOARD_PYTHON=E:/Python314/python.exe npm run verify:video -- \
 门禁 2 的四道关卡：两套内核逐手局面全等 → 逐手提子数全等 → 裁判终局 == SGF RE →
 全部帧全图 SHA-256 一致。任一不过即退出码 1。
 
-> 两个门禁依赖 `weiqi_lab` 仓库与 `board-replay` **同级放置**（`../weiqi_lab`）。
+> 裁判模块已 **vendored 进本仓**（`src/core/referee.mjs`，MIT，逐字副本 + 溯源标注头），
+> 因此两个门禁在**独立 clone 后即可运行**，无需同级放置 `weiqi_lab`。
+> 若需确认 vendored 副本与上游是否仍同步（上游改了要重新 vendored），跑：
+> `node tools/verify_go_sgf_referee.mjs --upstream` —— 它比对「去掉标注头后的正文」SHA-256。
 
 ### 坐标方向（易错点）
 
@@ -131,6 +134,7 @@ board-replay/
 │   ├── _smoke.mjs         # 端到端冒烟
 │   ├── core/
 │   │   ├── sgf.mjs        # vendored from weiqi_lab：SGF 解析（FF[4]）
+│   │   ├── referee.mjs    # vendored from weiqi_lab/tournament/referee.mjs：赛事裁判（离岸验证用）
 │   │   ├── bridge.mjs     # vendored from cordis-table-app：JSON-RPC stdio 桥
 │   │   └── chess_engine.mjs# vendored from lab/tournament/engine.mjs：国象规则引擎（perft 自检）
 │   └── plugins/
@@ -164,8 +168,9 @@ board-replay/
 
 > **两个 lab 的分工**：`lab/` 是**国际象棋**跨语言循环赛（`GoChess` 是 Go *语言*写的国象引擎，
 > 不是围棋）；**围棋**对局来自同系列的 `weiqi_lab/`（`GoWeiqi` 等）。本仓库 `samples/*.sgf`
-> 是 `weiqi_lab/tournament/sgf/` 的逐字副本（MD5 一致），两者同级放置时验证脚本可直接引用
-> `../weiqi_lab/tournament/referee.mjs` 作为独立裁判。
+> 是 `weiqi_lab/tournament/sgf/` 的逐字副本（MD5 一致）。
+> 赛事裁判 `referee.mjs` 也已 vendored 进本仓（`src/core/referee.mjs`，MIT，同作者），
+> 故离岸验证门禁无需外部仓库即可运行。
 
 ### 重新导入国象对局
 

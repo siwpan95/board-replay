@@ -10,7 +10,7 @@
 //   3) 裁判终局 == SGF RE         —— 终局结果自洽
 //   4) 全部帧全图 SHA-256 一致    —— 视频画面 == 裁判复演局面
 //
-// 依赖：weiqi_lab 仓库需与 board-replay 同级（../weiqi_lab）；Python + Pillow
+// 依赖：本仓 vendored 裁判 src/core/referee.mjs（MIT，随仓分发）；Python + Pillow
 // 用法：
 //   node tools/verify_replay_video.mjs <sgf文件> <帧目录> [格子像素]
 //   BOARD_PYTHON=E:/Python314/python.exe node tools/verify_replay_video.mjs \
@@ -27,10 +27,9 @@ import { applyMove, makeBoard, vertexToXY } from '../src/plugins/board.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(__dirname, '..')
-const REFEREE = resolve(ROOT, '..', 'weiqi_lab', 'tournament', 'referee.mjs')
+const REFEREE = resolve(ROOT, 'src', 'core', 'referee.mjs')
 if (!existsSync(REFEREE)) {
-  console.error('缺少赛事裁判模块: %s', REFEREE)
-  console.error('需要 weiqi_lab 仓库与 board-replay 同级放置')
+  console.error('缺少裁判模块: %s', REFEREE)
   process.exit(2)
 }
 const { Ref, parseVertex } = await import(pathToFileURL(REFEREE).href)
