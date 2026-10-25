@@ -135,7 +135,7 @@ export class HttpService extends Service {
       if (!print) return json(501, { error: 'print 插件未启用（用 BOARD_CONFIG=cordis.print.json 启动，需 Python + Pillow）' })
       const body = await this._body(req)
       try {
-        const out = await print.renderGame(body.id, body.step, body.out, body.kind)
+        const out = await print.renderGame(body.id, body.step, body.out, body.kind, body.extra)
         return json(200, out)
       } catch (e) {
         return json(500, { error: e.message })

@@ -8,7 +8,11 @@
     "start": "node src/boot.mjs",
     "start:print": "BOARD_CONFIG=cordis.print.json node src/boot.mjs",
     "smoke": "node src/_smoke.mjs",
-    "verify": "node tools/verify_lab_report.mjs"
+    "verify": "node tools/verify_lab_report.mjs",
+    "video": "node tools/replay_video.mjs",
+    "video:list": "node tools/replay_video.mjs --list",
+    "verify:go": "node tools/verify_go_sgf_referee.mjs",
+    "verify:video": "node tools/verify_replay_video.mjs"
   },
   "keywords": ["go", "weiqi", "sgf", "replay", "cordis", "board"],
   "author": "siwpan",

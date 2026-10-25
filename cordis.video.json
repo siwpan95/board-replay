@@ -1,0 +1,14 @@
+{
+  "entries": [
+    {
+      "id": "board",
+      "name": "./src/plugins/board.mjs",
+      "config": { "sgfDir": "samples" }
+    },
+    {
+      "id": "print",
+      "name": "./src/plugins/print.mjs",
+      "config": { "pythonBin": "", "script": "python/rpc_server.py" }
+    }
+  ]
+}

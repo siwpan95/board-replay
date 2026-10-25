@@ -1,11 +1,21 @@
 # 依赖
 node_modules/
 
-# 生成物（出图 / 临时）
+# 生成物（出图 / 视频 / 临时）
 output/
 *.png
+*.gif
+*.mp4
 *.tmp
 .broken-*
+
+# Python 缓存
+__pycache__/
+*.pyc
+
+# 运行时哨兵标记（赛事/验证进程写入，无代码引用）
+reports/.verify_end_*
+.tournament_end_*
 
 # 本地覆盖
 local.env
